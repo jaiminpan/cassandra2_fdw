@@ -29,4 +29,7 @@ extern CassSession *pgcass_GetConnection(ForeignServer *server, UserMapping *use
 			  bool will_prep_stmt);
 extern void pgcass_ReleaseConnection(CassSession *session);
 
+extern void pgcass_report_error(int elevel, CassFuture* result_future,
+				bool clear, const char *sql);
+
 #endif /* CASSANDRA2_FDW_H_ */

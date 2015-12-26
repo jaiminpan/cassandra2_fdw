@@ -936,12 +936,8 @@ fetch_more_data(ForeignScanState *node)
 		}
 		else
 		{
-			/* Handle error */
-			const char* message;
-			size_t message_length;
-			cass_future_error_message(result_future, &message, &message_length);
-			elog(LOG, "Unable to run query: '%.*s'\n",
-				  (int)message_length, message);
+			/* On error, report the original query. */
+			pgcass_report_error(ERROR, result_future, true, fsstate->query);
 
 			fsstate->eof_reached = true;
 		}

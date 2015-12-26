@@ -217,3 +217,51 @@ pgcass_close(int code, Datum arg)
 	cass_cluster_free(cluster);
 }
 
+
+/*
+ * Report an error we got from the remote server.
+ *
+ * elevel: error level to use (typically ERROR, but might be less)
+ * clear: if true, clear the result (otherwise caller will handle it)
+ * sql: NULL, or text of remote command we tried to execute
+ *
+ * Note: callers that choose not to throw ERROR for a remote error are
+ * responsible for making sure that the associated ConnCacheEntry gets
+ * marked with have_error = true.
+ */
+void
+pgcass_report_error(int elevel, CassFuture* result_future,
+				    bool clear, const char *sql)
+{
+	PG_TRY();
+	{
+		const char	   *message_primary = NULL;
+		const char	   *message_detail = NULL;
+		const char	   *message_hint =  NULL;
+		const char	   *message_context = NULL;
+		int			sqlstate;
+		size_t		message_length;
+
+		sqlstate = ERRCODE_CONNECTION_FAILURE;
+
+		cass_future_error_message(result_future, &message_primary, &message_length);
+
+		ereport(elevel,
+				(errcode(sqlstate),
+				 message_primary ? errmsg_internal("%s", message_primary) :
+				 errmsg("unknown error"),
+			   message_detail ? errdetail_internal("%s", message_detail) : 0,
+				 message_hint ? errhint("%s", message_hint) : 0,
+				 message_context ? errcontext("%s", message_context) : 0,
+				 sql ? errcontext("Remote SQL command: %s", sql) : 0));
+	}
+	PG_CATCH();
+	{
+		if (clear)
+			cass_future_free(result_future);
+		PG_RE_THROW();
+	}
+	PG_END_TRY();
+	if (clear)
+		cass_future_free(result_future);
+}
