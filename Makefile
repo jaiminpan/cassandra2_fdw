@@ -3,8 +3,7 @@
 MODULE_big = cassandra2_fdw
 OBJS = cassandra2_fdw.o cass_connection.o
 
-#PG_CPPFLAGS = -I$(libpq_srcdir)
-SHLIB_LINK = -L/home/jaimin/test -lcassandra
+SHLIB_LINK = -lcassandra
 
 EXTENSION = cassandra2_fdw
 DATA = cassandra2_fdw--1.0.sql
