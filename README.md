@@ -3,9 +3,26 @@ cassandra2_fdw
 
 Foreign Data Wrapper (FDW) that facilitates access to Cassandra 2.x from within PostgreSQL 9.4.
 
-Before install this extension, Cassandra2 cpp driver need be installed (https://github.com/datastax/cpp-driver).
+Cassandra: http://cassandra.apache.org/
 
-After install:
+## Prepare
+
+Firstly, Cassandra2 cpp driver need be installed (https://github.com/datastax/cpp-driver).
+
+## Build
+
+```
+git clone https://github.com/jaiminpan/cassandra2_fdw
+
+cd cassandra2_fdw
+USE_PGXS=1 make
+USE_PGXS=1 make install 
+# if got error when doing "USE_PGXS=1 make install"
+# try "sudo USE_PGXS=1 make install"
+```
+
+## Example
+
 *) Enter psql & Set up cassandra_fdw extension.
 
 	$ psql
@@ -29,3 +46,7 @@ After install:
 *) Query the foreign table.
 
 	SELECT * FROM test limit 5;
+
+## Author
+
+Jaimin Pan jaimin.pan@gmail.com
