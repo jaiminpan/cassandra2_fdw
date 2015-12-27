@@ -7,7 +7,7 @@ Cassandra: http://cassandra.apache.org/
 
 ## Prepare
 
-Firstly, Cassandra2 cpp driver need be installed (https://github.com/datastax/cpp-driver).
+Firstly, Cassandra2 cpp driver 2.1.0+ need be installed (https://github.com/datastax/cpp-driver).
 
 ## Build
 
@@ -46,6 +46,10 @@ USE_PGXS=1 make install
 *) Query the foreign table.
 
 	SELECT * FROM test limit 5;
+
+## Test
+
+It's test using cpp driver(2.1.0) and Cassandra(2.1.2).
 
 ## Author
 
