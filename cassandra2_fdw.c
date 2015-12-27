@@ -978,7 +978,7 @@ make_tuple_from_result_row(const CassRow* row,
 		char		buf[265];
 		const char	   *valstr;
 
-		const CassValue* cassVal = cass_row_get_column(row, i - 1);
+		const CassValue* cassVal = cass_row_get_column(row, j);
 		if (cass_true == cass_value_is_null(cassVal))
 			valstr = NULL;
 		else
