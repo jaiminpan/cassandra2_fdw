@@ -204,7 +204,7 @@ static void cassGetOptions(Oid foreigntableid,
 static void create_cursor(ForeignScanState *node);
 static void close_cursor(CassFdwScanState *fsstate);
 static void fetch_more_data(ForeignScanState *node);
-static const char *pgcass_transferValue(char* buf, const CassValue* value);
+static void pgcass_transferValue(StringInfo buf, const CassValue* value);
 static HeapTuple make_tuple_from_result_row(const CassRow* row,
 										   int ncolumn,
 										   Relation rel,
@@ -955,6 +955,7 @@ make_tuple_from_result_row(const CassRow* row,
 	MemoryContext oldcontext;
 	ListCell   *lc;
 	int			j;
+	StringInfoData buf;
 
 	/*
 	 * Do the following work in a temp context that we reset after each tuple.
@@ -968,6 +969,8 @@ make_tuple_from_result_row(const CassRow* row,
 	/* Initialize to nulls for any columns not present in result */
 	memset(nulls, true, tupdesc->natts * sizeof(bool));
 
+	initStringInfo(&buf);
+
 	/*
 	 * i indexes columns in the relation, j indexes columns in the PGresult.
 	 */
@@ -975,14 +978,16 @@ make_tuple_from_result_row(const CassRow* row,
 	foreach(lc, retrieved_attrs)
 	{
 		int			i = lfirst_int(lc);
-		char		buf[265];
 		const char	   *valstr;
 
 		const CassValue* cassVal = cass_row_get_column(row, j);
 		if (cass_true == cass_value_is_null(cassVal))
 			valstr = NULL;
 		else
-			valstr = pgcass_transferValue(buf, cassVal);
+		{
+			pgcass_transferValue(&buf, cassVal);
+			valstr = buf.data;
+		}
 
 		if (i > 0)
 		{
@@ -995,6 +1000,8 @@ make_tuple_from_result_row(const CassRow* row,
 											  attinmeta->attioparams[i - 1],
 											  attinmeta->atttypmods[i - 1]);
 		}
+
+		resetStringInfo(&buf);
 
 		j++;
 	}
@@ -1019,11 +1026,9 @@ make_tuple_from_result_row(const CassRow* row,
 	return tuple;
 }
 
-static const char *
-pgcass_transferValue(char* buf, const CassValue* value)
+static void
+pgcass_transferValue(StringInfo buf, const CassValue* value)
 {
-	const char* result = NULL;
-
 	CassValueType type = cass_value_type(value);
 	switch (type)
 	{
@@ -1031,31 +1036,28 @@ pgcass_transferValue(char* buf, const CassValue* value)
 	{
 		cass_int32_t i;
 		cass_value_get_int32(value, &i);
-		sprintf(buf, "%d", i);
-		result = buf;
+		appendStringInfo(buf, "%d", i);
 		break;
 	}
 	case CASS_VALUE_TYPE_BIGINT:
 	{
 		cass_int64_t i;
 		cass_value_get_int64(value, &i);
-		sprintf(buf, "%lld ", i);
-		result = buf;
+		appendStringInfo(buf, "%lld ", i);
 		break;
 	}
 	case CASS_VALUE_TYPE_BOOLEAN:
 	{
 		cass_bool_t b;
 		cass_value_get_bool(value, &b);
-		result = b ? "true" : "false";
+		appendStringInfoString(buf, b ? "true" : "false");
 		break;
 	}
 	case CASS_VALUE_TYPE_DOUBLE:
 	{
 		cass_double_t d;
 		cass_value_get_double(value, &d);
-		sprintf(buf, "%f", d);
-		result = buf;
+		appendStringInfo(buf, "%f", d);
 		break;
 	}
 
@@ -1066,28 +1068,25 @@ pgcass_transferValue(char* buf, const CassValue* value)
 		const char* s;
 		size_t s_length;
 		cass_value_get_string(value, &s, &s_length);
-//		sprintf(buf, "\"%.*s\"", (int)s_length, s);
-		result = s;
+		appendStringInfo(buf, "%.*s", (int)s_length, s);
 		break;
 	}
 	case CASS_VALUE_TYPE_UUID:
 	{
 		CassUuid u;
-		char us[CASS_UUID_STRING_LENGTH];
 
 		cass_value_get_uuid(value, &u);
-		cass_uuid_string(u, us);
-		result = us;
+		cass_uuid_string(u, buf->data + buf->len);
+		buf->len += CASS_UUID_STRING_LENGTH;
+		buf->data[buf->len] = '\0';
 		break;
 	}
 	case CASS_VALUE_TYPE_LIST:
 	case CASS_VALUE_TYPE_MAP:
 	default:
-		result = "<unhandled type>";
+		appendStringInfoString(buf, "<unhandled type>");
 		break;
 	}
-
-	return result;
 }
 
 
