@@ -198,6 +198,7 @@ static void cassGetOptions(Oid foreigntableid,
 				char **query, char **tablename);
 
 static void create_cursor(ForeignScanState *node);
+static void close_cursor(CassFdwScanState *fsstate);
 static void fetch_more_data(ForeignScanState *node);
 static const char *pgcass_transferValue(char* buf, const CassValue* value);
 static HeapTuple make_tuple_from_result_row(const CassRow* row,
@@ -803,10 +804,7 @@ cassEndForeignScan(ForeignScanState *node)
 
 	/* Close the cursor if open, to prevent accumulation of cursors */
 	if (fsstate->sql_sended)
-	{
-		if (fsstate->statement)
-			cass_statement_free(fsstate->statement);
-	}
+		close_cursor(fsstate);
 
 	/* Release remote connection */
 	pgcass_ReleaseConnection(fsstate->cass_conn);
@@ -837,6 +835,16 @@ create_cursor(ForeignScanState *node)
 }
 
 /*
+ * Utility routine to close a cursor.
+ */
+static void
+close_cursor(CassFdwScanState *fsstate)
+{
+	if (fsstate->statement)
+		cass_statement_free(fsstate->statement);
+}
+
+/*
  * Fetch some more rows from the node's cursor.
  */
 static void
@@ -854,9 +862,7 @@ fetch_more_data(ForeignScanState *node)
 	oldcontext = MemoryContextSwitchTo(fsstate->batch_cxt);
 
 	{
-		CassSession	   *conn = fsstate->cass_conn;
-
-		CassFuture* result_future = cass_session_execute(conn, fsstate->statement);
+		CassFuture* result_future = cass_session_execute(fsstate->cass_conn, fsstate->statement);
 		if (cass_future_error_code(result_future) == CASS_OK)
 		{
 			const CassResult* res;
