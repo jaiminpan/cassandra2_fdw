@@ -40,7 +40,8 @@ USE_PGXS=1 make install
 
 *) Create a foreign table on the server.
 
-	CREATE FOREIGN TABLE test (id int) SERVER cass_serv OPTIONS (table 'example.oorder');
+	// "schema_name" presents the "keyspace" in cassandra. Default is "public" keyspace if not set
+	CREATE FOREIGN TABLE test (id int) SERVER cass_serv OPTIONS (schema_name 'example', table_name 'oorder');
 
 
 *) Query the foreign table.

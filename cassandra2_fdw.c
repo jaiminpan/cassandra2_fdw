@@ -82,13 +82,14 @@ struct CassFdwOption
 static struct CassFdwOption valid_options[] =
 {
 	/* Connection options */
-	{ "url",		ForeignServerRelationId },
+	{ "url",			ForeignServerRelationId },
 	{ "querytimeout",	ForeignServerRelationId },
 	{ "maxheapsize",	ForeignServerRelationId },
 	{ "username",		UserMappingRelationId },
 	{ "password",		UserMappingRelationId },
-	{ "query",		ForeignTableRelationId },
-	{ "table",		ForeignTableRelationId },
+	{ "query",			ForeignTableRelationId },
+	{ "schema_name",	ForeignTableRelationId },
+	{ "table_name",		ForeignTableRelationId },
 
 	/* Sentinel */
 	{ NULL,			InvalidOid }
@@ -206,7 +207,7 @@ static HeapTuple make_tuple_from_result_row(const CassRow* row,
 										   List *retrieved_attrs,
 										   MemoryContext temp_context);
 
-void
+static void
 deparseSelectSql(StringInfo buf,
 				 PlannerInfo *root,
 				 RelOptInfo *baserel,
@@ -251,6 +252,7 @@ cassandra2_fdw_validator(PG_FUNCTION_ARGS)
 	char		*svr_username = NULL;
 	char		*svr_password = NULL;
 	char		*svr_query = NULL;
+	char		*svr_schema = NULL;
 	char		*svr_table = NULL;
 	int			svr_querytimeout = 0;
 	int			svr_maxheapsize = 0;
@@ -344,12 +346,21 @@ cassandra2_fdw_validator(PG_FUNCTION_ARGS)
 
 			svr_query = defGetString(def);
 		}
-		else if (strcmp(def->defname, "table") == 0)
+		else if (strcmp(def->defname, "schema_name") == 0)
+		{
+			if (svr_schema)
+				ereport(ERROR,
+						(errcode(ERRCODE_SYNTAX_ERROR),
+						 errmsg("conflicting or redundant options")));
+
+			svr_schema = defGetString(def);
+		}
+		else if (strcmp(def->defname, "table_name") == 0)
 		{
 			if (svr_query)
 				ereport(ERROR,
 						(errcode(ERRCODE_SYNTAX_ERROR),
-						 errmsg("conflicting or redundant options: table cannot be used with query")));
+						 errmsg("conflicting or redundant options: table_name cannot be used with query")));
 
 			if (svr_table)
 				ereport(ERROR,
@@ -369,7 +380,7 @@ cassandra2_fdw_validator(PG_FUNCTION_ARGS)
 		svr_query == NULL && svr_table == NULL)
 		ereport(ERROR,
 				(errcode(ERRCODE_SYNTAX_ERROR),
-				 errmsg("either table or query must be specified")));
+				 errmsg("either table_name or query must be specified")));
 
 	PG_RETURN_VOID();
 }
@@ -443,7 +454,7 @@ cassGetOptions(Oid foreigntableid, char **url, int *querytimeout, int *maxheapsi
 		{
 			*query = defGetString(def);
 		}
-		else if (strcmp(def->defname, "table") == 0)
+		else if (strcmp(def->defname, "table_name") == 0)
 		{
 			*tablename = defGetString(def);
 		}
@@ -581,7 +592,7 @@ cassGetForeignPlan(PlannerInfo *root,
 
 	/*
 	 * Build the fdw_private list that will be available to the executor.
-	 * Items in the list must match enum FdwScanPrivateIndex, above.
+	 * Items in the list must match enum CassFdwScanPrivateIndex, above.
 	 */
 	fdw_private = list_make2(makeString(sql.data),
 							 retrieved_attrs);
@@ -629,10 +640,8 @@ cassExplainForeignScan(ForeignScanState *node, ExplainState *es)
 						&svr_username, &svr_password,
 						&svr_query, &svr_table);
 
-		//TODO
 		fdw_private = ((ForeignScan *) node->ss.ps.plan)->fdw_private;
 		sql = strVal(list_nth(fdw_private, CassFdwScanPrivateSelectSql));
-//		sql = "test SQL";
 		ExplainPropertyText("Remote SQL", sql, es);
 	}
 }
@@ -686,49 +695,9 @@ cassBeginForeignScan(ForeignScanState *node, int eflags)
 	fsstate->cass_conn = pgcass_GetConnection(server, user, false);
 	fsstate->sql_sended = false;
 
-	{
-		char			*query;
-
-		char			*svr_url = NULL;
-		char			*svr_username = NULL;
-		char			*svr_password = NULL;
-		char			*svr_query = NULL;
-		char			*svr_table = NULL;
-		int 			svr_querytimeout = 0;
-		int 			svr_maxheapsize = 0;
-
-		/* Fetch options  */
-		cassGetOptions(RelationGetRelid(node->ss.ss_currentRelation),
-						&svr_url,
-						&svr_querytimeout,
-						&svr_maxheapsize,
-						&svr_username,
-						&svr_password,
-						&svr_query,
-						&svr_table
-		);
-
-		/* Build the query */
-		if (svr_query != NULL)
-		{
-			query = svr_query;
-		}
-		else
-		{
-			size_t len = strlen(svr_table) + 15;
-
-			query = (char *)palloc(len);
-			snprintf(query, len, "SELECT * FROM %s", svr_table);
-		}
-
-		elog(LOG, "Cass PUSDOWN Query = '%s'", query);
-
-		fsstate->query = query;
-	}
-
 	/* Get private info created by planner functions. */
-//	fsstate->query = strVal(list_nth(fsplan->fdw_private,
-//									 CassFdwScanPrivateSelectSql));
+	fsstate->query = strVal(list_nth(fsplan->fdw_private,
+									 CassFdwScanPrivateSelectSql));
 	fsstate->retrieved_attrs = (List *) list_nth(fsplan->fdw_private,
 											   CassFdwScanPrivateRetrievedAttrs);
 
@@ -837,11 +806,6 @@ cassEndForeignScan(ForeignScanState *node)
 	{
 		if (fsstate->statement)
 			cass_statement_free(fsstate->statement);
-	}
-
-	if (fsstate->query)
-	{
-		pfree(fsstate->query);
 	}
 
 	/* Release remote connection */
@@ -1115,7 +1079,7 @@ static void deparseRelation(StringInfo buf, Relation rel);
  * We also create an integer List of the columns being retrieved, which is
  * returned to *retrieved_attrs.
  */
-void
+static void
 deparseSelectSql(StringInfo buf,
 				 PlannerInfo *root,
 				 RelOptInfo *baserel,
