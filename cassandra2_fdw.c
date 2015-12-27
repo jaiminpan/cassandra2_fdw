@@ -100,6 +100,10 @@ static struct CassFdwOption valid_options[] =
  */
 typedef struct CassFdwPlanState
 {
+	/* baserestrictinfo clauses, broken down into safe and unsafe subsets. */
+	List	   *remote_conds;
+	List	   *local_conds;
+
 	/* Bitmap of attr numbers we need to fetch from the remote server. */
 	Bitmapset  *attrs_used;
 
@@ -208,6 +212,11 @@ static HeapTuple make_tuple_from_result_row(const CassRow* row,
 										   List *retrieved_attrs,
 										   MemoryContext temp_context);
 
+static void classifyConditions(PlannerInfo *root,
+				   RelOptInfo *baserel,
+				   List *input_conds,
+				   List **remote_conds,
+				   List **local_conds);
 static void
 deparseSelectSql(StringInfo buf,
 				 PlannerInfo *root,
@@ -478,13 +487,28 @@ cassGetForeignRelSize(PlannerInfo *root,
 					  Oid foreigntableid)
 {
 	CassFdwPlanState *fpinfo;
+	ListCell   *lc;
 
 	fpinfo = (CassFdwPlanState *) palloc0(sizeof(CassFdwPlanState));
 	baserel->fdw_private = (void *) fpinfo;
 
+	/*
+	 * Identify which baserestrictinfo clauses can be sent to the remote
+	 * server and which can't.
+	 */
+	classifyConditions(root, baserel, baserel->baserestrictinfo,
+					   &fpinfo->remote_conds, &fpinfo->local_conds);
+
 	fpinfo->attrs_used = NULL;
 	pull_varattnos((Node *) baserel->reltargetlist, baserel->relid,
 				   &fpinfo->attrs_used);
+	foreach(lc, fpinfo->local_conds)
+	{
+		RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
+
+		pull_varattnos((Node *) rinfo->clause, baserel->relid,
+					   &fpinfo->attrs_used);
+	}
 
 	//TODO
 	/* Fetch options  */
@@ -1076,6 +1100,32 @@ static void deparseTargetList(StringInfo buf,
 static void deparseColumnRef(StringInfo buf, int varno, int varattno,
 				 PlannerInfo *root);
 static void deparseRelation(StringInfo buf, Relation rel);
+
+/*
+ * Examine each qual clause in input_conds, and classify them into two groups,
+ * which are returned as two lists:
+ *	- remote_conds contains expressions that can be evaluated remotely
+ *	- local_conds contains expressions that can't be evaluated remotely
+ */
+static void
+classifyConditions(PlannerInfo *root,
+				   RelOptInfo *baserel,
+				   List *input_conds,
+				   List **remote_conds,
+				   List **local_conds)
+{
+	ListCell   *lc;
+
+	*remote_conds = NIL;
+	*local_conds = NIL;
+
+	foreach(lc, input_conds)
+	{
+		RestrictInfo *ri = (RestrictInfo *) lfirst(lc);
+
+		*local_conds = lappend(*local_conds, ri);
+	}
+}
 
 /*
  * Construct a simple SELECT statement that retrieves desired columns
