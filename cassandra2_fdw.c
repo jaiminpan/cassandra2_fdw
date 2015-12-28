@@ -82,9 +82,9 @@ struct CassFdwOption
 static struct CassFdwOption valid_options[] =
 {
 	/* Connection options */
-	{ "url",			ForeignServerRelationId },
-	{ "querytimeout",	ForeignServerRelationId },
-	{ "maxheapsize",	ForeignServerRelationId },
+	{ "host",			ForeignServerRelationId },
+	{ "port",			ForeignServerRelationId },
+	{ "protocol",		ForeignServerRelationId },
 	{ "username",		UserMappingRelationId },
 	{ "password",		UserMappingRelationId },
 	{ "query",			ForeignTableRelationId },
@@ -197,8 +197,8 @@ static void estimate_path_cost_size(PlannerInfo *root,
 						Cost *p_startup_cost, Cost *p_total_cost);
 static bool cassIsValidOption(const char *option, Oid context);
 static void cassGetOptions(Oid foreigntableid,
-				char **url, int *querytimeout,
-				int* maxheapsize, char **username, char **password,
+				char **host, int *port,
+				char **username, char **password,
 				char **query, char **tablename);
 
 static void create_cursor(ForeignScanState *node);
@@ -258,14 +258,13 @@ cassandra2_fdw_validator(PG_FUNCTION_ARGS)
 {
 	List		*options_list = untransformRelOptions(PG_GETARG_DATUM(0));
 	Oid			catalog = PG_GETARG_OID(1);
-	char		*svr_url = NULL;
+	char		*svr_host = NULL;
+	int			svr_port = 0;
 	char		*svr_username = NULL;
 	char		*svr_password = NULL;
 	char		*svr_query = NULL;
 	char		*svr_schema = NULL;
 	char		*svr_table = NULL;
-	int			svr_querytimeout = 0;
-	int			svr_maxheapsize = 0;
 	ListCell	*cell;
 
 	/*
@@ -302,29 +301,21 @@ cassandra2_fdw_validator(PG_FUNCTION_ARGS)
 				  : errhint("There are no valid options in this context.")));
 		}
 
-		if (strcmp(def->defname, "url") == 0)
+		if (strcmp(def->defname, "host") == 0)
 		{
-			if (svr_url)
+			if (svr_host)
 				ereport(ERROR,
 						(errcode(ERRCODE_SYNTAX_ERROR),
 						 errmsg("conflicting or redundant options")));
-			svr_url = defGetString(def);
+			svr_host = defGetString(def);
 		}
-		else if (strcmp(def->defname, "querytimeout") == 0)
+		if (strcmp(def->defname, "port") == 0)
 		{
-			if (svr_querytimeout)
+			if (svr_port)
 				ereport(ERROR,
 						(errcode(ERRCODE_SYNTAX_ERROR),
 						 errmsg("conflicting or redundant options")));
-			svr_querytimeout = atoi(defGetString(def));
-		}
-		else if (strcmp(def->defname, "maxheapsize") == 0)
-		{
-			if (svr_maxheapsize)
-				ereport(ERROR,
-						(errcode(ERRCODE_SYNTAX_ERROR),
-						 errmsg("conflicting or redundant options")));
-			svr_maxheapsize = atoi(defGetString(def));
+			svr_port = atoi(defGetString(def));
 		}
 		else if (strcmp(def->defname, "username") == 0)
 		{
@@ -381,10 +372,10 @@ cassandra2_fdw_validator(PG_FUNCTION_ARGS)
 		}
 	}
 
-	if (catalog == ForeignServerRelationId && svr_url == NULL)
+	if (catalog == ForeignServerRelationId && svr_host == NULL)
 		ereport(ERROR,
 				(errcode(ERRCODE_SYNTAX_ERROR),
-				 errmsg("URL must be specified")));
+				 errmsg("host must be specified")));
 
 	if (catalog == ForeignTableRelationId &&
 		svr_query == NULL && svr_table == NULL)
@@ -418,7 +409,7 @@ cassIsValidOption(const char *option, Oid context)
  * Fetch the options for a fdw foreign table.
  */
 static void
-cassGetOptions(Oid foreigntableid, char **url, int *querytimeout, int *maxheapsize,
+cassGetOptions(Oid foreigntableid, char **host, int *port,
 				char **username, char **password, char **query, char **tablename)
 {
 	ForeignTable  *table;
@@ -448,14 +439,6 @@ cassGetOptions(Oid foreigntableid, char **url, int *querytimeout, int *maxheapsi
 		{
 			*username = defGetString(def);
 		}
-		else if (strcmp(def->defname, "querytimeout") == 0)
-		{
-			*querytimeout = atoi(defGetString(def));
-		}
-		else if (strcmp(def->defname, "maxheapsize") == 0)
-		{
-			*maxheapsize = atoi(defGetString(def));
-		}
 		else if (strcmp(def->defname, "password") == 0)
 		{
 			*password = defGetString(def);
@@ -468,10 +451,15 @@ cassGetOptions(Oid foreigntableid, char **url, int *querytimeout, int *maxheapsi
 		{
 			*tablename = defGetString(def);
 		}
-		else if (strcmp(def->defname, "url") == 0)
+		else if (strcmp(def->defname, "host") == 0)
 		{
-			*url = defGetString(def);
+			*host = defGetString(def);
 		}
+		else if (strcmp(def->defname, "port") == 0)
+		{
+			*port = atoi(defGetString(def));
+		}
+
 	}
 }
 
@@ -649,19 +637,18 @@ cassExplainForeignScan(ForeignScanState *node, ExplainState *es)
 	List	   *fdw_private;
 	char	   *sql;
 
-	char	*svr_url = NULL;
+	char	*svr_host = NULL;
+	int		svr_port = 0;
 	char	*svr_username = NULL;
 	char	*svr_password = NULL;
 	char	*svr_query = NULL;
 	char	*svr_table = NULL;
-	int		svr_querytimeout = 0;
-	int		svr_maxheapsize = 0;
 
 	if (es->verbose)
 	{
 		/* Fetch options  */
 		cassGetOptions(RelationGetRelid(node->ss.ss_currentRelation),
-						&svr_url, &svr_querytimeout, &svr_maxheapsize,
+						&svr_host, &svr_port,
 						&svr_username, &svr_password,
 						&svr_query, &svr_table);
 

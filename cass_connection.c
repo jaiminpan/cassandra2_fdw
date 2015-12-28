@@ -47,15 +47,13 @@ static bool xact_got_connection = false;
 
 /* prototypes of private functions */
 static CassSession *connect_cass_server(ForeignServer *server, UserMapping *user);
+static int ExtractOptions(List *defelems, const char **keywords,
+						 const char **values);
 
 
 static CassCluster* cluster;
 
-/*
- * Cass Connection Initialization function
- */
 static void pgcass_close(int code, Datum arg);
-
 
 
 CassSession *
@@ -176,32 +174,106 @@ connect_cass_server(ForeignServer *server, UserMapping *user)
 		on_proc_exit(pgcass_close, 0);
 	}
 
-	session = cass_session_new();
-
-	/* Add contact points */
-	cass_cluster_set_contact_points(cluster, "127.0.0.1");
-	cass_cluster_set_credentials(cluster, "cassandra", "cassandra");
-
-	/* Provide the cluster object as configuration to connect the session */
-	conn_future = cass_session_connect(session, cluster);
-	if (cass_future_error_code(conn_future) != CASS_OK)
+	/*
+	 * Use PG_TRY block to ensure closing connection on error.
+	 */
+	PG_TRY();
 	{
-		/* Handle error */
-		char buf[256];
-		const char* message;
-		size_t message_length;
+		const char **keywords;
+		const char **values;
+		int			n;
+		int			i;
+		char		*svr_host = NULL;
+		int			svr_port = 0;
+		int			svr_proto = 0;
+		char		*svr_username = NULL;
+		char		*svr_password = NULL;
 
-		cass_future_error_message(conn_future, &message, &message_length);
+		/*
+		 * Construct connection params from generic options of ForeignServer
+		 * and UserMapping.
+		 */
+		n = list_length(server->options) + list_length(user->options) + 1;
+		keywords = (const char **) palloc(n * sizeof(char *));
+		values = (const char **) palloc(n * sizeof(char *));
 
-		snprintf(buf, 255, "%.*s", (int)message_length, message);
+		n = 0;
+		n += ExtractOptions(server->options,
+							keywords + n, values + n);
+		n += ExtractOptions(user->options,
+							keywords + n, values + n);
+
+		keywords[n] = values[n] = NULL;
+
+		/* Add contact points */
+		for (i = 0; keywords[i] != NULL; i++)
+		{
+			if (strcmp(keywords[i], "host") == 0)
+			{
+				svr_host = values[i];
+			}
+			else if (strcmp(keywords[i], "port") == 0)
+			{
+				svr_port = atoi(values[i]);
+			}
+			else if (strcmp(keywords[i], "protocol") == 0)
+			{
+				svr_proto = atoi(values[i]);
+			}
+			else if (strcmp(keywords[i], "username") == 0)
+			{
+				svr_username = values[i];
+			}
+			else if (strcmp(keywords[i], "password") == 0)
+			{
+				svr_password = values[i];
+			}
+		}
+
+		if (svr_host)
+			cass_cluster_set_contact_points(cluster, svr_host);
+		if (svr_port)
+			cass_cluster_set_port(cluster, svr_port);
+		if (svr_proto)
+			cass_cluster_set_protocol_version(cluster, svr_proto);
+		if (svr_username && svr_password)
+			cass_cluster_set_credentials(cluster, svr_username, svr_password);
+
+		session = cass_session_new();
+
+		/* Provide the cluster object as configuration to connect the session */
+		conn_future = cass_session_connect(session, cluster);
+		if (cass_future_error_code(conn_future) != CASS_OK)
+		{
+			/* Handle error */
+			const char* message;
+			size_t message_length;
+
+			cass_future_error_message(conn_future, &message, &message_length);
+
+			ereport(ERROR,
+					(errcode(ERRCODE_SQLCLIENT_UNABLE_TO_ESTABLISH_SQLCONNECTION),
+							errmsg("could not connect to server \"%s\"",
+									server->servername),
+					errdetail_internal("%.*s", (int)message_length, message)));
+		}
+
 		cass_future_free(conn_future);
 
-		ereport(ERROR,
-				(errcode(ERRCODE_SQLCLIENT_UNABLE_TO_ESTABLISH_SQLCONNECTION),
-						errmsg("could not connect to server \"%s\"",
-								server->servername),
-				errdetail_internal("%s", buf)));
+		pfree(keywords);
+		pfree(values);
 	}
+	PG_CATCH();
+	{
+		/* Release data structure if we managed to create one */
+		if (conn_future)
+			cass_future_free(conn_future);
+
+		if (session)
+			cass_session_free(session);
+		PG_RE_THROW();
+	}
+	PG_END_TRY();
 
 	return session;
 }
@@ -264,4 +336,28 @@ pgcass_report_error(int elevel, CassFuture* result_future,
 	PG_END_TRY();
 	if (clear)
 		cass_future_free(result_future);
+}
+
+/*
+ * Generate key-value arrays which include only libpq options from the
+ * given list (which can contain any kind of options).  Caller must have
+ * allocated large-enough arrays.  Returns number of options found.
+ */
+static int
+ExtractOptions(List *defelems, const char **keywords,
+						 const char **values)
+{
+	ListCell   *lc;
+	int			i;
+
+	i = 0;
+	foreach(lc, defelems)
+	{
+		DefElem    *d = (DefElem *) lfirst(lc);
+
+		keywords[i] = d->defname;
+		values[i] = defGetString(d);
+		i++;
+	}
+	return i;
 }
