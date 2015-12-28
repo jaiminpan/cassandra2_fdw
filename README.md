@@ -30,7 +30,7 @@ USE_PGXS=1 make install
 	CREATE EXTENSION cassandra2_fdw;
 
 	CREATE SERVER cass_serv FOREIGN DATA WRAPPER cassandra2_fdw 
-		OPTIONS(url 'localhost:9160');
+		OPTIONS(host '127.0.0.1:127.0.0.2', port '9042', protocol '2');
 
 
 *) Create a user mapping for the server.
