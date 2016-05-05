@@ -2,6 +2,7 @@ cassandra2_fdw
 ==============
 [![Lang](https://img.shields.io/badge/Language-C%2FC%2B%2B-green.svg)]()
 [![MIT](https://img.shields.io/badge/License-MIT-green.svg)]()
+[![Extension](https://img.shields.io/badge/Extension-PostgreSQL-green.svg)]()
 
 Foreign Data Wrapper (FDW) that facilitates access to Cassandra 2.x from within PostgreSQL 9.4.
 
