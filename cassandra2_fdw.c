@@ -177,7 +177,12 @@ static ForeignScan *cassGetForeignPlan(
 							Oid foreigntableid,
 							ForeignPath *best_path,
 							List *tlist,
-							List *scan_clauses);
+							List *scan_clauses
+#if (PG_VERSION_NUM >= 90500)
+							,
+							Plan *outer_plan
+#endif
+							);
 static void cassExplainForeignScan(ForeignScanState *node, ExplainState *es);
 static void cassBeginForeignScan(ForeignScanState *node, int eflags);
 static TupleTableSlot *cassIterateForeignScan(ForeignScanState *node);
@@ -565,7 +570,11 @@ cassGetForeignPaths(PlannerInfo *root,
 								   fpinfo->total_cost,
 								   NIL, /* no pathkeys */
 								   NULL,		/* no outer rel either */
+#if (PG_VERSION_NUM >= 90500)
+								   NULL,		/* no fdw_outerpath */
+#endif
 								   NIL);		/* no fdw_private list */
+
 	add_path(baserel, (Path *) path);
 
 	//TODO
@@ -581,7 +590,12 @@ cassGetForeignPlan(PlannerInfo *root,
 					   Oid foreigntableid,
 					   ForeignPath *best_path,
 					   List *tlist,
-					   List *scan_clauses)
+					   List *scan_clauses
+#if (PG_VERSION_NUM >= 90500)
+					   ,
+					   Plan *outer_plan
+#endif
+					   )
 {
 	CassFdwPlanState *fpinfo = (CassFdwPlanState *) baserel->fdw_private;
 	Index		scan_relid = baserel->relid;
@@ -619,7 +633,14 @@ cassGetForeignPlan(PlannerInfo *root,
 							local_exprs,
 							scan_relid,
 							NIL,
-							fdw_private);
+							fdw_private
+#if (PG_VERSION_NUM >= 90500)
+							,
+							NIL,		/* no custom tlist */
+							NIL,		/* no remote quals */
+							outer_plan
+#endif
+							);
 }
 
 //#endif /* #if (PG_VERSION_NUM >= 90200) */
