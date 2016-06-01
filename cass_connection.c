@@ -15,8 +15,10 @@
 #include "cassandra2_fdw.h"
 
 #include "access/xact.h"
+#include "commands/defrem.h"
 #include "mb/pg_wchar.h"
 #include "miscadmin.h"
+#include "storage/ipc.h"
 #include "utils/hsearch.h"
 #include "utils/memutils.h"
 
@@ -183,11 +185,11 @@ connect_cass_server(ForeignServer *server, UserMapping *user)
 		const char **values;
 		int			n;
 		int			i;
-		char		*svr_host = NULL;
+		const char	*svr_host = NULL;
 		int			svr_port = 0;
 		int			svr_proto = 0;
-		char		*svr_username = NULL;
-		char		*svr_password = NULL;
+		const char	*svr_username = NULL;
+		const char	*svr_password = NULL;
 
 		/*
 		 * Construct connection params from generic options of ForeignServer

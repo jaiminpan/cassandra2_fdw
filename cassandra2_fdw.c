@@ -183,9 +183,6 @@ static void cassBeginForeignScan(ForeignScanState *node, int eflags);
 static TupleTableSlot *cassIterateForeignScan(ForeignScanState *node);
 static void cassReScanForeignScan(ForeignScanState *node);
 static void cassEndForeignScan(ForeignScanState *node);
-static bool cassAnalyzeForeignTable(Relation relation,
-						AcquireSampleRowsFunc *func,
-						BlockNumber *totalpages);
 
 /*
  * Helper functions
