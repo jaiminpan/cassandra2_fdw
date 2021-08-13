@@ -6,7 +6,7 @@ OBJS = cassandra2_fdw.o cass_connection.o
 SHLIB_LINK = -lcassandra
 
 EXTENSION = cassandra2_fdw
-DATA = cassandra2_fdw--1.0.sql
+DATA = cassandra2_fdw--2.0.sql
 
 REGRESS = cassandra2_fdw
 
