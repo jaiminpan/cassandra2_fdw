@@ -1137,6 +1137,7 @@ pgcass_transferValue(StringInfo buf, const CassValue* value)
 		break;
 	}
 	case CASS_VALUE_TYPE_BIGINT:
+	case CASS_VALUE_TYPE_TIMESTAMP:
 	{
 		cass_int64_t i;
 		cass_value_get_int64(value, &i);
@@ -1161,6 +1162,7 @@ pgcass_transferValue(StringInfo buf, const CassValue* value)
 	case CASS_VALUE_TYPE_TEXT:
 	case CASS_VALUE_TYPE_ASCII:
 	case CASS_VALUE_TYPE_VARCHAR:
+	case CASS_VALUE_TYPE_SET:
 	{
 		const char* s;
 		size_t s_length;
