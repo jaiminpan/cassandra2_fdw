@@ -1,0 +1,7 @@
+# Ignore file
+cass_connection.bc
+cass_connection.o
+cassandra2_fdw.bc
+cassandra2_fdw.o
+cassandra2_fdw.so
+.vscode/
