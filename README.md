@@ -9,7 +9,6 @@ Foreign Data Wrapper (FDW) that facilitates access to Cassandra 2.x and 3.x from
 Cassandra: http://cassandra.apache.org/
 
 __PostgreSQL Support__:  
-[![version](https://img.shields.io/badge/PostgreSQL-9.5-blue.svg)]()
 [![version](https://img.shields.io/badge/PostgreSQL-9.6-blue.svg)]()
 [![version](https://img.shields.io/badge/PostgreSQL-10-blue.svg)]()
 [![version](https://img.shields.io/badge/PostgreSQL-11-blue.svg)]()
@@ -78,7 +77,7 @@ Here is the example
 The 
 
 | Cassandra | PostgreSQL                                           |
-| --------- | ---------------------------------------------------- |
+| --------- | :--------------------------------------------------- |
 | tynint    | smallint                                             |
 | smallint  | smallint                                             |
 | int       | integer                                              |
