@@ -13,11 +13,11 @@
  *
  *-------------------------------------------------------------------------
  */
-//#if (PG_VERSION_NUM < 90200)
-//# error The file must compiler when pg version large than 90200
-//#endif
-
 #include "postgres.h"
+
+#if (PG_VERSION_NUM < 100000)
+#error Oldes supported PostgreSQL version is 10 (100000) 
+#endif /* PG_VERSION_NUM < 100000 */
 
 #include <cassandra.h>
 
@@ -28,11 +28,7 @@
 #include "access/sysattr.h"
 #include "executor/spi.h"
 #include "foreign/fdwapi.h"
-#if PG_VERSION_NUM < 100000
-#include "libpq/md5.h"
-#else
 #include "common/md5.h"
-#endif  /* PG_VERSION_NUM */
 #include "funcapi.h"
 #include "miscadmin.h"
 #include "mb/pg_wchar.h"
@@ -50,7 +46,7 @@
 #include "optimizer/pathnode.h"
 #if PG_VERSION_NUM >= 130000
 #include "optimizer/paths.h"
-#endif  /* PG_VERSION_NUM */
+#endif  /* PG_VERSION_NUM 130000 */
 #include "optimizer/planmain.h"
 #include "optimizer/restrictinfo.h"
 #if PG_VERSION_NUM < 120000
@@ -61,7 +57,7 @@
 #include "nodes/pathnodes.h"
 #include "optimizer/optimizer.h"
 #include "access/heapam.h"
-#endif  /* PG_VERSION_NUM */
+#endif  /* PG_VERSION_NUM 120000 */
 #include "optimizer/paths.h"
 #include "parser/parsetree.h"
 #include "storage/fd.h"
