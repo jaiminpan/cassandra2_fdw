@@ -1128,7 +1128,7 @@ pgcass_transferValue(StringInfo buf, const CassValue* value)
 	case CASS_VALUE_TYPE_SMALL_INT:
 	case CASS_VALUE_TYPE_TINY_INT:
 	{
-		cass_int32_t i;
+		cass_int16_t i;
 		cass_value_get_int16(value, &i);
 		appendStringInfo(buf, "%d", i);
 		break;
@@ -1155,10 +1155,11 @@ pgcass_transferValue(StringInfo buf, const CassValue* value)
 		appendStringInfoString(buf, b ? "true" : "false");
 		break;
 	}
-	case CAS_VALUE_FLOAT:
+	case CASS_VALUE_TYPE_FLOAT:
 	{
-		cass_value_get_float(value, &d);
-		appendStringInfo(buf, "%f", d);
+		cass_float_t f;
+		cass_value_get_float(value, &f);
+		appendStringInfo(buf, "%f", f);
 		break;
 	}
 	case CASS_VALUE_TYPE_DOUBLE:
