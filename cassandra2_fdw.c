@@ -13,11 +13,11 @@
  *
  *-------------------------------------------------------------------------
  */
-//#if (PG_VERSION_NUM < 90200)
-//# error The file must compiler when pg version large than 90200
-//#endif
-
 #include "postgres.h"
+
+#if (PG_VERSION_NUM < 100000)
+#error Oldes supported PostgreSQL version is 10 (100000) 
+#endif /* PG_VERSION_NUM < 100000 */
 
 #include <cassandra.h>
 
@@ -28,7 +28,7 @@
 #include "access/sysattr.h"
 #include "executor/spi.h"
 #include "foreign/fdwapi.h"
-#include "foreign/foreign.h"
+#include "common/md5.h"
 #include "funcapi.h"
 #include "miscadmin.h"
 #include "mb/pg_wchar.h"
@@ -44,9 +44,21 @@
 #include "nodes/makefuncs.h"
 #include "nodes/nodeFuncs.h"
 #include "optimizer/pathnode.h"
+#if PG_VERSION_NUM >= 130000
+#include "optimizer/paths.h"
+#endif  /* PG_VERSION_NUM 130000 */
 #include "optimizer/planmain.h"
 #include "optimizer/restrictinfo.h"
+#if PG_VERSION_NUM < 120000
+#include "nodes/relation.h"
 #include "optimizer/var.h"
+#include "utils/tqual.h"
+#else
+#include "nodes/pathnodes.h"
+#include "optimizer/optimizer.h"
+#include "access/heapam.h"
+#endif  /* PG_VERSION_NUM 120000 */
+#include "optimizer/paths.h"
 #include "parser/parsetree.h"
 #include "storage/fd.h"
 #include "storage/ipc.h"
@@ -57,6 +69,61 @@
 #include "utils/lsyscache.h"
 #include "utils/memutils.h"
 
+/* defined in backend/commands/analyze.c */
+#ifndef WIDTH_THRESHOLD
+#define WIDTH_THRESHOLD 1024
+#endif  /* WIDTH_THRESHOLD */
+
+#if PG_VERSION_NUM >= 90500
+#define IMPORT_API
+
+/* array_create_iterator has a new signature from 9.5 on */
+#define array_create_iterator(arr, slice_ndim) array_create_iterator(arr, slice_ndim, NULL)
+#else
+#undef IMPORT_API
+#endif  /* PG_VERSION_NUM */
+
+#if PG_VERSION_NUM >= 90600
+#define JOIN_API
+
+/* the useful macro IS_SIMPLE_REL is defined in v10, backport */
+#ifndef IS_SIMPLE_REL
+#define IS_SIMPLE_REL(rel) \
+	((rel)->reloptkind == RELOPT_BASEREL || \
+	(rel)->reloptkind == RELOPT_OTHER_MEMBER_REL)
+#endif
+
+#if (PG_VERSION_NUM < 110000)
+#define TupleDescAttr(tupdesc, i) ((tupdesc)->attrs[(i)])
+#else
+#define get_relid_attribute_name(relid, varattno) get_attname((relid), (varattno), false)
+#endif
+
+/* GetConfigOptionByName has a new signature from 9.6 on */
+#define GetConfigOptionByName(name, varname) GetConfigOptionByName(name, varname, false)
+#else
+#undef JOIN_API
+#endif  /* PG_VERSION_NUM */
+
+#if PG_VERSION_NUM < 110000
+/* backport macro from V11 */
+#define TupleDescAttr(tupdesc, i) ((tupdesc)->attrs[(i)])
+#endif  /* PG_VERSION_NUM */
+
+/* list API has changed in v13 */
+#if PG_VERSION_NUM < 130000
+#define list_next(l, e) lnext((e))
+#define do_each_cell(cell, list, element) for_each_cell(cell, (element))
+#else
+#define list_next(l, e) lnext((l), (e))
+#define do_each_cell(cell, list, element) for_each_cell(cell, (list), (element))
+#endif  /* PG_VERSION_NUM */
+
+/* "table_open" was "heap_open" before v12 */
+#if PG_VERSION_NUM < 120000
+#define table_open(x, y) heap_open(x, y)
+#define table_close(x, y) heap_close(x, y)
+#endif  /* PG_VERSION_NUM */
 
 PG_MODULE_MAGIC;
 
@@ -234,7 +301,7 @@ Datum
 cassandra2_fdw_handler(PG_FUNCTION_ARGS)
 {
 	FdwRoutine *fdwroutine = makeNode(FdwRoutine);
-	
+
 	fdwroutine->GetForeignRelSize = cassGetForeignRelSize;
 	fdwroutine->GetForeignPaths = cassGetForeignPaths;
 	fdwroutine->GetForeignPlan = cassGetForeignPlan;
@@ -272,7 +339,7 @@ cassandra2_fdw_validator(PG_FUNCTION_ARGS)
 	/*
 	 * Check that only options supported by cassandra2_fdw,
 	 * and allowed for the current object type, are given.
-	*/ 
+	*/
 	foreach(cell, options_list)
 	{
 		DefElem    *def = (DefElem *) lfirst(cell);
@@ -490,8 +557,13 @@ cassGetForeignRelSize(PlannerInfo *root,
 					   &fpinfo->remote_conds, &fpinfo->local_conds);
 
 	fpinfo->attrs_used = NULL;
+#if (PG_VERSION_NUM >= 90600)
+	pull_varattnos((Node *) baserel->reltarget->exprs, baserel->relid,
+				   &fpinfo->attrs_used);
+#else
 	pull_varattnos((Node *) baserel->reltargetlist, baserel->relid,
 				   &fpinfo->attrs_used);
+#endif
 	foreach(lc, fpinfo->local_conds)
 	{
 		RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
@@ -518,7 +590,11 @@ cassGetForeignRelSize(PlannerInfo *root,
 		{
 			baserel->pages = 10;
 			baserel->tuples =
+#if (PG_VERSION_NUM >= 90600)
+				(10 * BLCKSZ) / (baserel->reltarget->width + sizeof(HeapTupleHeaderData));
+#else
 				(10 * BLCKSZ) / (baserel->width + sizeof(HeapTupleHeaderData));
+#endif
 		}
 
 		/* Estimate baserel size as best we can with local statistics. */
@@ -539,7 +615,11 @@ estimate_path_cost_size(PlannerInfo *root,
 						Cost *p_startup_cost, Cost *p_total_cost)
 {
 	*p_rows = baserel->rows;
+#if (PG_VERSION_NUM >= 90600)
+	*p_width = baserel->reltarget->width;
+#else
 	*p_width = baserel->width;
+#endif
 
 	*p_startup_cost = DEFAULT_FDW_STARTUP_COST;
 	*p_total_cost = DEFAULT_FDW_TUPLE_COST * 100;
@@ -565,6 +645,9 @@ cassGetForeignPaths(PlannerInfo *root,
 	 * to estimate cost and size of this path.
 	 */
 	path = create_foreignscan_path(root, baserel,
+#if (PG_VERSION_NUM >= 10000)
+								   NULL,
+#endif
 								   fpinfo->rows + baserel->rows,
 								   fpinfo->startup_cost,
 								   fpinfo->total_cost,
@@ -783,10 +866,16 @@ cassIterateForeignScan(ForeignScanState *node)
 	/*
 	 * Return the next tuple.
 	 */
+#if (PG_VERSION_NUM < 120000)
 	ExecStoreTuple(fsstate->tuples[fsstate->next_tuple++],
 				   slot,
 				   InvalidBuffer,
 				   false);
+#else
+	ExecStoreHeapTuple(fsstate->tuples[fsstate->next_tuple++],
+					   slot,
+					   false);
+#endif
 
 	return slot;
 }
@@ -880,7 +969,6 @@ static void
 fetch_more_data(ForeignScanState *node)
 {
 	CassFdwScanState *fsstate = (CassFdwScanState *) node->fdw_state;
-	MemoryContext oldcontext;
 
 	/*
 	 * We'll store the tuples in the batch_cxt.  First, flush the previous
@@ -888,7 +976,7 @@ fetch_more_data(ForeignScanState *node)
 	 */
 	fsstate->tuples = NULL;
 	MemoryContextReset(fsstate->batch_cxt);
-	oldcontext = MemoryContextSwitchTo(fsstate->batch_cxt);
+	MemoryContextSwitchTo(fsstate->batch_cxt);
 
 	{
 		CassFuture* result_future = cass_session_execute(fsstate->cass_conn, fsstate->statement);
@@ -1037,6 +1125,14 @@ pgcass_transferValue(StringInfo buf, const CassValue* value)
 	CassValueType type = cass_value_type(value);
 	switch (type)
 	{
+	case CASS_VALUE_TYPE_SMALL_INT:
+	case CASS_VALUE_TYPE_TINY_INT:
+	{
+		cass_int16_t i;
+		cass_value_get_int16(value, &i);
+		appendStringInfo(buf, "%d", i);
+		break;
+	}
 	case CASS_VALUE_TYPE_INT:
 	{
 		cass_int32_t i;
@@ -1045,10 +1141,11 @@ pgcass_transferValue(StringInfo buf, const CassValue* value)
 		break;
 	}
 	case CASS_VALUE_TYPE_BIGINT:
+	case CASS_VALUE_TYPE_TIMESTAMP:
 	{
 		cass_int64_t i;
 		cass_value_get_int64(value, &i);
-		appendStringInfo(buf, "%lld ", i);
+		appendStringInfo(buf, "%ld ", i);
 		break;
 	}
 	case CASS_VALUE_TYPE_BOOLEAN:
@@ -1056,6 +1153,13 @@ pgcass_transferValue(StringInfo buf, const CassValue* value)
 		cass_bool_t b;
 		cass_value_get_bool(value, &b);
 		appendStringInfoString(buf, b ? "true" : "false");
+		break;
+	}
+	case CASS_VALUE_TYPE_FLOAT:
+	{
+		cass_float_t f;
+		cass_value_get_float(value, &f);
+		appendStringInfo(buf, "%f", f);
 		break;
 	}
 	case CASS_VALUE_TYPE_DOUBLE:
@@ -1069,6 +1173,7 @@ pgcass_transferValue(StringInfo buf, const CassValue* value)
 	case CASS_VALUE_TYPE_TEXT:
 	case CASS_VALUE_TYPE_ASCII:
 	case CASS_VALUE_TYPE_VARCHAR:
+	case CASS_VALUE_TYPE_SET:
 	{
 		const char* s;
 		size_t s_length;
@@ -1153,7 +1258,7 @@ deparseSelectSql(StringInfo buf,
 	 * Core code already has some lock on each rel being planned, so we can
 	 * use NoLock here.
 	 */
-	rel = heap_open(rte->relid, NoLock);
+	rel = table_open(rte->relid, NoLock);
 
 	/*
 	 * Construct SELECT list
@@ -1168,7 +1273,9 @@ deparseSelectSql(StringInfo buf,
 	appendStringInfoString(buf, " FROM ");
 	deparseRelation(buf, rel);
 
+#if PG_VERSION_NUM < 120000
 	heap_close(rel, NoLock);
+#endif
 }
 
 
@@ -1201,7 +1308,7 @@ deparseTargetList(StringInfo buf,
 	first = true;
 	for (i = 1; i <= tupdesc->natts; i++)
 	{
-		Form_pg_attribute attr = tupdesc->attrs[i - 1];
+		Form_pg_attribute attr = TupleDescAttr(tupdesc, i - 1);
 
 		/* Ignore dropped attributes. */
 		if (attr->attisdropped)

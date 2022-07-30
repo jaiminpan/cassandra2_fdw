@@ -14,6 +14,7 @@
 
 #include "cassandra2_fdw.h"
 
+#include "access/hash.h"
 #include "access/xact.h"
 #include "commands/defrem.h"
 #include "mb/pg_wchar.h"
