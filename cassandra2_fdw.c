@@ -1275,6 +1275,8 @@ deparseSelectSql(StringInfo buf,
 
 #if PG_VERSION_NUM < 120000
 	heap_close(rel, NoLock);
+#else
+	table_close(rel, NoLock);
 #endif
 }
 
