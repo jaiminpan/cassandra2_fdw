@@ -4,7 +4,9 @@ cassandra2_fdw
 [![MIT](https://img.shields.io/badge/License-MIT-green.svg)]()
 [![Extension](https://img.shields.io/badge/Extension-PostgreSQL-green.svg)]()
 
-Foreign Data Wrapper (FDW) that facilitates access to Cassandra 2.x and 3.x from within PostgreSQL.  
+Foreign Data Wrapper (FDW) that facilitates access to Cassandra 2.x, 3.x, and 4.x from within PostgreSQL.
+
+Only functions for reading data originated in Cassandra have been implemented. Writing data back to Cassandra is not supported.
 
 Cassandra: http://cassandra.apache.org/
 

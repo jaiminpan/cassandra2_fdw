@@ -16,7 +16,7 @@
 #include "postgres.h"
 
 #if (PG_VERSION_NUM < 100000)
-#error Oldes supported PostgreSQL version is 10 (100000) 
+#error Oldest supported PostgreSQL version is 10 (100000)
 #endif /* PG_VERSION_NUM < 100000 */
 
 #include <cassandra.h>
