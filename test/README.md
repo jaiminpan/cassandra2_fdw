@@ -41,22 +41,22 @@ This script executes all tests.
 
 ### setup_img.sh
 
-The script creates all Docker images as configured in [build.cfg](#build-cfg). Within the PostgreSQL container the packages are updated and all needed packages will be installed, that are needed to compile the foreign data wrapper. It will compile the datastax Cassandra lib, that is needed to compile the extension.<br />
+The script creates all Docker images as configured in [build.cfg](#buildcfg). Within the PostgreSQL container the packages are updated and all needed packages will be installed, that are needed to compile the foreign data wrapper. It will compile the datastax Cassandra lib, that is needed to compile the extension.<br />
 The installation runs in all PostgreSQL containers.
 
 ### cassandra.sh
 
-The scripts to initialize the Cassandra data for every Container created in setup_img.sh and configured in [build.cfg](#build.cfg).
+The scripts to initialize the Cassandra data for every Container created in setup_img.sh and configured in [build.cfg](#buildcfg).
 
-Within a loop for every Cassandra container configured, it will call the [postgresql.sh](#postgresql.sh).
+Within a loop for every Cassandra container configured, it will call the [postgresql.sh](#postgresqlsh).
 
 ### postgresql.sh
 
-The script creates a database in a PostgreSQL container and adds all objects to access the Cassandra container given as IP address as parameter within [cassandra.sh](#cassandra.sh).
+The script creates a database in a PostgreSQL container and adds all objects to access the Cassandra container given as IP address as parameter within [cassandra.sh](#cassandrash).
 
 ### cleanup.sh
 
-The script stops and deletes all containers configured in [build.cfg](#build.cfg). It can also delete the Docker network, where all containers are running with.
+The script stops and deletes all containers configured in [build.cfg](#buildcfg). It can also delete the Docker network, where all containers are running with.
 
 By default the result container is not removed. The shell script interprets **1** given as parameter as to remove the container with the result database, too.<br />
 As there are no contianers left when started with **1**, the docker network will be removed, too.
