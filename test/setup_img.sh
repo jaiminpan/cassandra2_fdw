@@ -44,7 +44,7 @@ do
 
     ## Install additional packages for the cpp-driver and PostgreSQL
     sudo docker exec -it $POSTGRESQL_CONTAINER bash -c "apt install locales-all locales -y > /dev/null"
-    sudo docker exec -it $POSTGRESQL_CONTAINER bash -c "apt install git make cmake build-essential libuv1 libuv1-dev openssl libssl-dev zlib1g-dev zlib1g libkrb5-dev wget pgxnclient postgresql-contrib postgresql-server-dev-${PG_VERSION} -y > /dev/null"
+    sudo docker exec -it $POSTGRESQL_CONTAINER bash -c "apt install git make cmake build-essential lsb-release wget libuv1 libuv1-dev openssl libssl-dev zlib1g-dev zlib1g libkrb5-dev wget pgxnclient postgresql-contrib postgresql-server-dev-${PG_VERSION} -y > /dev/null"
 
     ## Get the cpp-driver sources
     sudo docker exec -it $POSTGRESQL_CONTAINER bash -c "mkdir /tmp ; cd /tmp ; git clone https://github.com/datastax/cpp-driver.git"
