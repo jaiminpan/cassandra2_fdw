@@ -19,12 +19,8 @@ __PostgreSQL Support__:
 [![version](https://img.shields.io/badge/PostgreSQL-15-blue.svg)]()
 
 __Cassandra Support__:  
-[![version](https://img.shields.io/badge/Cassandra-2.0-blue.svg)]()
-[![version](https://img.shields.io/badge/Cassandra-2.1-blue.svg)]()
-[![version](https://img.shields.io/badge/Cassandra-2.2-blue.svg)]()
 [![version](https://img.shields.io/badge/Cassandra-3.0-blue.svg)]()
 [![version](https://img.shields.io/badge/Cassandra-3.1-blue.svg)]()
-[![version](https://img.shields.io/badge/Cassandra-3.2-blue.svg)]()
 [![version](https://img.shields.io/badge/Cassandra-4.0-blue.svg)]()
 
 ## Prepare
