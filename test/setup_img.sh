@@ -87,4 +87,3 @@ done
 # Cassandra needs some time to be started, therefore the script waits for 30 seconds
 echo "Waiting for 60 seconds until Cassandra servers have started and are up..."
 sleep 60
-
