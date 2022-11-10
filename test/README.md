@@ -8,6 +8,8 @@ The Cassandra Docker images are available at [cassandra|Docker Hub](https://hub.
 
 The Cassandra Docker images are available at [PostgreSQL|Docker Hub](https://hub.docker.com/_/postgres/).
 
+<span style="color:red">PostgreSQL 11 is not tested here due to having problems with the Docker container having header files installed.</span>
+
 ## Test Scipts
 
 ### build.cfg
