@@ -7,4 +7,4 @@
 ./cassandra.sh
 
 # Clean up everything
-#./cleanup.sh
+./cleanup.sh
