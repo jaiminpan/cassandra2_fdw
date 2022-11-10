@@ -81,11 +81,14 @@ For every test the following data is stored:
 - test_result: TEXT: Data read from the Cassandra database, fields are concatinated, separator is pipe
 
 ```sql
+-- Count of tests for each version
 SELECT postgresql_version
     , cassandra_version
-    , count(*)
+    , count(*) AS count_of_tests
 FROM result_data.results
-GROUP BY 1, 2
-ORDER BY 1, 2
+GROUP BY postgresql_version
+    , cassandra_version
+ORDER BY postgresql_version
+    , cassandra_version
 ;
 ```
