@@ -93,4 +93,22 @@ GROUP BY postgresql_version
 ORDER BY postgresql_version
     , cassandra_version
 ;
+
+-- Find empty results which probably are pointing to a problem
+WITH t1 AS
+    (
+        SELECT created
+            , postgresql_version
+            , cassandra_version
+            , test_description
+            , string_to_array(test_result, '|') AS res
+        FROM result_data.results
+    )
+SELECT *
+FROM t1
+WHERE
+    COALESCE(res[1], '') = ''
+OR
+    COALESCE(res[2], '') = ''
+;
 ```
