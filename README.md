@@ -11,7 +11,6 @@ Only functions for reading data originated in Cassandra have been implemented. W
 Cassandra: http://cassandra.apache.org/
 
 __PostgreSQL Support__:  
-[![version](https://img.shields.io/badge/PostgreSQL-10-blue.svg)]()
 [![version](https://img.shields.io/badge/PostgreSQL-11-blue.svg)]()
 [![version](https://img.shields.io/badge/PostgreSQL-12-blue.svg)]()
 [![version](https://img.shields.io/badge/PostgreSQL-13-blue.svg)]()
