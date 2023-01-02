@@ -1173,7 +1173,6 @@ pgcass_transferValue(StringInfo buf, const CassValue* value)
 	case CASS_VALUE_TYPE_TEXT:
 	case CASS_VALUE_TYPE_ASCII:
 	case CASS_VALUE_TYPE_VARCHAR:
-	case CASS_VALUE_TYPE_SET:
 	{
 		const char* s;
 		size_t s_length;
@@ -1191,6 +1190,7 @@ pgcass_transferValue(StringInfo buf, const CassValue* value)
 		buf->data[buf->len] = '\0';
 		break;
 	}
+	case CASS_VALUE_TYPE_SET:
 	case CASS_VALUE_TYPE_LIST:
 	case CASS_VALUE_TYPE_MAP:
 	default:
