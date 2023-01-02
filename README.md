@@ -95,7 +95,6 @@ Here is an example
 | text      | text                                                 |
 | ascii     | text                                                 |
 | varchar   | text                                                 |
-| set       | text                                                 |
 | uuid      | uuid                                                 |
 
 ## Unsupported Data Types
