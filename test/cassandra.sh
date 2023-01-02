@@ -92,10 +92,6 @@ do
     sudo docker exec -it $CASSANDRA_CONTAINER cqlsh --keyspace=cassandra_fdw --execute="INSERT INTO fdw_test_varchar(id, some_text) VALUES (uuid(), 'test 3');"
     sudo docker exec -it $CASSANDRA_CONTAINER cqlsh --keyspace=cassandra_fdw --execute="INSERT INTO fdw_test_varchar(id, some_text) VALUES (uuid(), 'test 4');"
 
-    # set
-    sudo docker exec -it $CASSANDRA_CONTAINER cqlsh --keyspace=cassandra_fdw --execute="INSERT INTO fdw_test_set(id, some_text) VALUES (uuid(), {'test 1'});"
-    sudo docker exec -it $CASSANDRA_CONTAINER cqlsh --keyspace=cassandra_fdw --execute="INSERT INTO fdw_test_set(id, some_text) VALUES (uuid(), {'test 1', 'test 2', 'test 3', 'test 4'});"
-
     # timestamp
     sudo docker exec -it $CASSANDRA_CONTAINER cqlsh --keyspace=cassandra_fdw --execute="INSERT INTO fdw_test_timestamp(id, some_timestamp) VALUES (uuid(), toTimestamp(now()));"
     sudo docker exec -it $CASSANDRA_CONTAINER cqlsh --keyspace=cassandra_fdw --execute="INSERT INTO fdw_test_timestamp(id, some_timestamp) VALUES (uuid(), toTimestamp(now()));"
