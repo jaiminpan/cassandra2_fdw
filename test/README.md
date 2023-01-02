@@ -8,10 +8,7 @@ The Cassandra Docker images are available at [cassandra|Docker Hub](https://hub.
 
 The Cassandra Docker images are available at [PostgreSQL|Docker Hub](https://hub.docker.com/_/postgres/).
 
-<span style="color:red">PostgreSQL 11 is not tested here due to having problems with the Docker container having header files installed.</span>
-
 ## Test Scipts
-
 ### build.cfg
 
 Contains the configuration of all parameters used in the tests.
@@ -77,8 +74,8 @@ The test results are stored in a container with PostgreSQL as database.
 For every test the following data is stored:
 
 - created: TIMESTAMP WITH TIME ZONE: Execution timestamp
-- postgresql_version: TEXT: Name of the PostgreSQL container
-- cassandra_version: TEXT: Name of the Cassandra container
+- postgresql_version: TEXT: Name of the PostgreSQL container which does by default contain the version number
+- cassandra_version: TEXT: Name of the Cassandra container which does by default contain the version number
 - test_description: TEXT: Name/description of the test
 - test_result: TEXT: Data read from the Cassandra database, fields are concatinated, separator is pipe
 
@@ -92,23 +89,5 @@ GROUP BY postgresql_version
     , cassandra_version
 ORDER BY postgresql_version
     , cassandra_version
-;
-
--- Find empty results which probably are pointing to a problem
-WITH t1 AS
-    (
-        SELECT created
-            , postgresql_version
-            , cassandra_version
-            , test_description
-            , string_to_array(test_result, '|') AS res
-        FROM result_data.results
-    )
-SELECT *
-FROM t1
-WHERE
-    COALESCE(res[1], '') = ''
-OR
-    COALESCE(res[2], '') = ''
 ;
 ```
