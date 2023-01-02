@@ -112,4 +112,4 @@ With  cpp-driver 2.16.0 against mentioned PostgreSQL versions and against Cassan
 ## Authors
 
 - [Jaimin Pan](mailto:jaimin.pan@gmail.com)
-- [Stefanie Janine Stölting](mailto:stefanie@ProOpenSoucre.eu)
+- [Stefanie Janine Stölting](mailto:stefanie@ProOpenSource.eu)
