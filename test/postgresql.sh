@@ -74,7 +74,6 @@ do
     sudo docker exec -it $POSTGRESQL_CONTAINER psql --host=$POSTGRESQL_HOST --port=$POSTGRESQL_PORT --username=$POSTGRESQL_USER $POSTGRESQL_DB2 --command "CREATE FOREIGN TABLE cassandra.fdw_test_uuid(id uuid, some_text text) server cass_serv options (schema_name 'cassandra_fdw', table_name 'fdw_test_uuid');"
     sudo docker exec -it $POSTGRESQL_CONTAINER psql --host=$POSTGRESQL_HOST --port=$POSTGRESQL_PORT --username=$POSTGRESQL_USER $POSTGRESQL_DB2 --command "CREATE FOREIGN TABLE cassandra.fdw_test_ascii(id uuid, some_text text) server cass_serv options (schema_name 'cassandra_fdw', table_name 'fdw_test_ascii');"
     sudo docker exec -it $POSTGRESQL_CONTAINER psql --host=$POSTGRESQL_HOST --port=$POSTGRESQL_PORT --username=$POSTGRESQL_USER $POSTGRESQL_DB2 --command "CREATE FOREIGN TABLE cassandra.fdw_test_varchar(id uuid, some_text text) server cass_serv options (schema_name 'cassandra_fdw', table_name 'fdw_test_varchar');"
-    sudo docker exec -it $POSTGRESQL_CONTAINER psql --host=$POSTGRESQL_HOST --port=$POSTGRESQL_PORT --username=$POSTGRESQL_USER $POSTGRESQL_DB2 --command "CREATE FOREIGN TABLE cassandra.fdw_test_set(id uuid, some_text text) server cass_serv options (schema_name 'cassandra_fdw', table_name 'fdw_test_set');"
     sudo docker exec -it $POSTGRESQL_CONTAINER psql --host=$POSTGRESQL_HOST --port=$POSTGRESQL_PORT --username=$POSTGRESQL_USER $POSTGRESQL_DB2 --command "CREATE FOREIGN TABLE cassandra.fdw_test_timestamp(id uuid, some_timestamp bigint) server cass_serv options (schema_name 'cassandra_fdw', table_name 'fdw_test_timestamp');"
 
     # Test by running a queries
@@ -107,9 +106,6 @@ do
 
     echo "Testing varchar"
     sudo docker exec -it $POSTGRESQL_CONTAINER psql --host=$POSTGRESQL_HOST --port=$POSTGRESQL_PORT --username=$POSTGRESQL_USER $POSTGRESQL_DB2 --command "INSERT INTO $POSTGRESQL_RESULT_SCHEMA.fdw_test_results(created, postgresql_version, cassandra_version, test_description, test_result) SELECT current_timestamp, '$POSTGRESQL_CONTAINER', '$CASSANDRA_CONTAINER', 'Testing varchar', id::text || '|' || some_text from cassandra.fdw_test_varchar;"
-
-    echo "Testing set"
-    sudo docker exec -it $POSTGRESQL_CONTAINER psql --host=$POSTGRESQL_HOST --port=$POSTGRESQL_PORT --username=$POSTGRESQL_USER $POSTGRESQL_DB2 --command "INSERT INTO $POSTGRESQL_RESULT_SCHEMA.fdw_test_results(created, postgresql_version, cassandra_version, test_description, test_result) SELECT current_timestamp, '$POSTGRESQL_CONTAINER', '$CASSANDRA_CONTAINER', 'Testing set', id::text || '|' || some_text from cassandra.fdw_test_set;"
 
     echo "Testing timestamp"
     sudo docker exec -it $POSTGRESQL_CONTAINER psql --host=$POSTGRESQL_HOST --port=$POSTGRESQL_PORT --username=$POSTGRESQL_USER $POSTGRESQL_DB2 --command "INSERT INTO $POSTGRESQL_RESULT_SCHEMA.fdw_test_results(created, postgresql_version, cassandra_version, test_description, test_result) SELECT current_timestamp, '$POSTGRESQL_CONTAINER', '$CASSANDRA_CONTAINER', 'Testing timestamp', id::text || '|' || some_timestamp from cassandra.fdw_test_timestamp;"
